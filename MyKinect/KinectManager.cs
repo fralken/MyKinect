@@ -7,7 +7,7 @@ using System.Windows.Media;
 
 namespace MyKinect
 {
-    class KinectManager
+    class KinectManager : IDisposable
     {
         /// <summary>
         /// Active Kinect sensor
@@ -69,9 +69,6 @@ namespace MyKinect
         /// </summary>
         private const double _ClipBoundsThickness = 10;
 
-        public EventHandler<EventArgs> GuestHandlerBefore = null;
-        public EventHandler<EventArgs> GuestHandlerAfter = null;
-
         public KinectManager()
         {
             _kinectSensor = KinectSensor.GetDefault();
@@ -82,7 +79,7 @@ namespace MyKinect
 
             _coordinateMapper = _kinectSensor.CoordinateMapper;
 
-            _bitmap = GreenScreenBitmapGenerator.Create(_coordinateMapper, false);
+            _bitmap = GreenScreenBitmapGenerator.Create(_coordinateMapper, true);
 
             // Create the drawing group we'll use for drawing
             _drawingGroup = new DrawingGroup();
@@ -91,6 +88,18 @@ namespace MyKinect
             _drawImage = new DrawingImage(_drawingGroup);
 
             _kinectSensor.Open();
+        }
+
+        public event EventHandler<MultiSourceFrameArrivedEventArgs> MultiSourceFrameArrived
+        {
+            add
+            {
+                lock (this) { _multiFrameSourceReader.MultiSourceFrameArrived += value; }
+            }
+            remove
+            {
+                lock (this) { _multiFrameSourceReader.MultiSourceFrameArrived -= value; }
+            }
         }
 
         public ImageSource getBitmap()
@@ -127,9 +136,6 @@ namespace MyKinect
         /// <param name="e">event arguments</param>
         private void Reader_MultiSourceFrameArrived(object sender, MultiSourceFrameArrivedEventArgs e)
         {
-            if (GuestHandlerBefore != null)
-                GuestHandlerBefore(sender, e);
-
             MultiSourceFrame multiSourceFrame = e.FrameReference.AcquireFrame();
 
             // If the Frame has expired by the time we process this event, return.
@@ -159,7 +165,6 @@ namespace MyKinect
                 using (DrawingContext dc = _drawingGroup.Open())
                 {
                     // Draw a transparent background to set the render size
-                    //dc.DrawRectangle(Brushes.Transparent, null, new Rect(0.0, 0.0, _depthWidth, _depthHeight));
                     dc.DrawRectangle(Brushes.Transparent, null, new Rect(0.0, 0.0, _bitmap.Bitmap.Width, _bitmap.Bitmap.Height));
 
                     foreach (Body body in bodies)
@@ -205,9 +210,6 @@ namespace MyKinect
                     _drawingGroup.ClipGeometry = new RectangleGeometry(new Rect(0.0, 0.0, _bitmap.Bitmap.Width, _bitmap.Bitmap.Height));
                 }
             }
-
-            if (GuestHandlerAfter != null)
-                GuestHandlerAfter(sender, e);
         }
 
         /// <summary>

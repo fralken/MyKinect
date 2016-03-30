@@ -3,6 +3,7 @@ using System.Linq;
 using System.ComponentModel;
 using System.Windows;
 using System.Windows.Media;
+using Microsoft.Kinect;
 
 namespace MyKinect
 {
@@ -15,7 +16,7 @@ namespace MyKinect
         /// Kinect manager
         /// </summary>
         private KinectManager _kinect = null;
-        private DateTime _startTime;
+        private DateTime _startTime = DateTime.MinValue;
 
         private int _fps = 0;
         private double _min_fps = double.MaxValue;
@@ -26,38 +27,36 @@ namespace MyKinect
         public MainWindow()
         {
             _kinect = new KinectManager();
-            _kinect.GuestHandlerBefore = FPS_counter_starter;
-            _kinect.GuestHandlerAfter = UpdateBitmap;
+            _kinect.MultiSourceFrameArrived += UpdateBitmap;
+            _kinect.MultiSourceFrameArrived += FPS_counter;
 
             DataContext = this;
 
             InitializeComponent();
         }
 
-        private void FPS_counter_starter(object sender, EventArgs e)
-        {
-            _startTime = DateTime.Now;
-            _kinect.GuestHandlerBefore = FPS_counter;
-        }
-
         private void FPS_counter(object sender, EventArgs e)
         {
-            TimeSpan elapsed = DateTime.Now - _startTime;
-            if (elapsed.TotalMilliseconds >= 1000)
-            {
-                double current_fps = _fps * 1000 / elapsed.TotalMilliseconds;
-
-                _elapsed_seconds += elapsed.TotalMilliseconds / 1000;
-                _total_frames += _fps;
-                _fps = 0;
+            if (_startTime == DateTime.MinValue)
                 _startTime = DateTime.Now;
+            else {
+                TimeSpan elapsed = DateTime.Now - _startTime;
+                if (elapsed.TotalMilliseconds >= 1000)
+                {
+                    double current_fps = _fps * 1000 / elapsed.TotalMilliseconds;
 
-                if (current_fps < _min_fps) _min_fps = current_fps;
-                if (current_fps > _max_fps) _max_fps = current_fps;
+                    _elapsed_seconds += elapsed.TotalMilliseconds / 1000;
+                    _total_frames += _fps;
+                    _fps = 0;
+                    _startTime = DateTime.Now;
 
-                double avg_fps = _total_frames / _elapsed_seconds;
+                    if (current_fps < _min_fps) _min_fps = current_fps;
+                    if (current_fps > _max_fps) _max_fps = current_fps;
 
-                fps.Text = String.Format("FPS: {0:0.00}  min: {1:0.00}  max: {2:0.00}  avg: {3:0.00}", current_fps, _min_fps, _max_fps, avg_fps);
+                    double avg_fps = _total_frames / _elapsed_seconds;
+
+                    fps.Text = String.Format("FPS: {0:0.00}  min: {1:0.00}  max: {2:0.00}  avg: {3:0.00}", current_fps, _min_fps, _max_fps, avg_fps);
+                }
             }
             _fps++;
         }
